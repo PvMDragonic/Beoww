@@ -10,36 +10,36 @@ import java.util.logging.Logger;
 
 public class ClientHandler implements Runnable
 {
-    private final Socket cliente;
-    private final Scanner entrada;
-    private final DataOutputStream saida;
+    private Socket cliente;
+    private Scanner entrada;
+    private DataOutputStream saida;
     private ArrayList<ClientHandler> clientes;
     
     public ClientHandler(Socket clientSocket, ArrayList<ClientHandler> clientes) throws IOException
     {
         this.cliente = clientSocket;
         this.clientes = clientes;
-        entrada = new Scanner(cliente.getInputStream());
-        saida = new DataOutputStream(cliente.getOutputStream());
+        entrada = new Scanner(this.cliente.getInputStream());
+        saida = new DataOutputStream(this.cliente.getOutputStream());
     }
     
     private void enviarParaTodos(String mensagem) throws IOException
     {
-        for (ClientHandler todosClientes : clientes)
+        for (ClientHandler Cliente : clientes)
         {
-            todosClientes.saida.writeUTF(mensagem);
+            Cliente.saida.writeUTF(mensagem);
         }
     }
     
     @Override
     public void run() 
     {
-        while(entrada.hasNextLine())
+        while(this.entrada.hasNextLine())
         {
             try 
             {
-                String mensagem = entrada.nextLine();
-                System.out.println(mensagem);
+                String mensagem = this.entrada.nextLine();
+                System.out.println(mensagem.replace("[[[[[", "\n"));
                 enviarParaTodos(mensagem);
             } 
             catch (IOException ex) 
@@ -47,16 +47,17 @@ public class ClientHandler implements Runnable
                 Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-
+        
         try 
         {
-            saida.close();
-            entrada.close();
+            this.entrada.close();
+            this.saida.close();
         } 
         catch (IOException ex) 
         {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
+        
     }
     
 }

@@ -21,9 +21,8 @@ public class Server
         
         try 
         {
-            InetAddress locIP = InetAddress.getByName("192.168.0.3");
-            ServerSocket server = new ServerSocket(porta, 0, locIP);
-            System.out.println("Servidor iniciado na porta " + porta + " com IP " + locIP);
+            ServerSocket server = new ServerSocket(porta, 0, InetAddress.getByName("192.168.0.3"));
+            System.out.println("Servidor iniciado em " + server.getInetAddress().getHostAddress() + ":" + porta);
 
             while (true)
             {
@@ -31,7 +30,7 @@ public class Server
                 System.out.println("Cliente conectado do IP " + cliente.getInetAddress().getHostAddress());
                 ClientHandler clientThread = new ClientHandler(cliente, clientes);
                 clientes.add(clientThread);
-                
+
                 pool.execute(clientThread);
             }        
         } 
