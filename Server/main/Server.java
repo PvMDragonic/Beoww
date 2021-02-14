@@ -1,15 +1,20 @@
 package main;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Scanner;
+import java.util.ArrayList; 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Server
-{    
+{     
+    private static ArrayList<ClientHandler> clientes = new ArrayList<>();
+    private static ExecutorService pool = Executors.newFixedThreadPool(5);
+    
     public static void main(String args[])
     {  
         int porta = 25565;
@@ -20,24 +25,15 @@ public class Server
             ServerSocket server = new ServerSocket(porta, 0, locIP);
             System.out.println("Servidor iniciado na porta " + porta + " com IP " + locIP);
 
-            Socket cliente = server.accept();
-            System.out.println("Cliente conectado do IP " + cliente.getInetAddress().getHostAddress());
-            
-            // Isso aqui recebe a mensagem do client.
-            Scanner entrada = new Scanner(cliente.getInputStream());
-            
-            // Isso aqui é pra enviar de volta ao client a mensagem.
-            DataOutputStream msg = new DataOutputStream(cliente.getOutputStream());
-            
-            while(entrada.hasNextLine())
+            while (true)
             {
-                String mensagem = entrada.nextLine();
-                System.out.println(mensagem);
-                msg.writeUTF(mensagem);
-            }
-
-            entrada.close();
-            server.close();
+                Socket cliente = server.accept();
+                System.out.println("Cliente conectado do IP " + cliente.getInetAddress().getHostAddress());
+                ClientHandler clientThread = new ClientHandler(cliente, clientes);
+                clientes.add(clientThread);
+                
+                pool.execute(clientThread);
+            }        
         } 
         catch (IOException ex) 
         {
