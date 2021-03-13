@@ -1,72 +1,73 @@
 package main;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Scanner;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class ClientHandler implements Runnable
 {
-    private Socket cliente;
-    private Scanner entrada;
-    public DataOutputStream saida;
+    public Socket cliente;
+    public ObjectOutputStream saida;
     public ArrayList<ClientHandler> clientes;
     
     public ClientHandler(Socket clientSocket, ArrayList<ClientHandler> clientes) throws IOException
     {
         this.cliente = clientSocket;
         this.clientes = clientes;
-        entrada = new Scanner(this.cliente.getInputStream());
-        saida = new DataOutputStream(this.cliente.getOutputStream());
+        saida = new ObjectOutputStream(this.cliente.getOutputStream());
     }
     
     private void verificarTodos() throws IOException
     {
         for (ClientHandler Cliente : clientes)
-        {
-            Cliente.saida.writeUTF("");
+        {   
+            Cliente.saida.writeObject(new ObjetoEnviado(-1, 3, null, "", "", "", ""));
         }
     }
     
-    private void enviarParaTodos(String mensagem) throws IOException
+    private void enviarParaTodos(ObjetoEnviado msg) throws IOException
     {
         for (ClientHandler Cliente : clientes)
         {
-            Cliente.saida.writeUTF(mensagem);
+            System.out.println("enviando: " + msg.getTipo());
+            Cliente.saida.writeObject(msg);
         }
     }
     
     @Override
     public void run() 
     {
-        while(entrada.hasNextLine())
-        {
-            String mensagem = null;
+        while (true)
+        {   
+            ObjetoEnviado msg = null;
             try 
             {
-                // Vai ler sempre que chegar uma nova mensagem do servidor.
-                mensagem = entrada.nextLine();
-                System.out.println(mensagem.replace("[[[[[", "\n"));
+                ObjectInputStream inputStream = new ObjectInputStream(this.cliente.getInputStream());
                 
+                msg = (ObjetoEnviado) inputStream.readObject();
+
                 verificarTodos();
-                enviarParaTodos(mensagem);
-            } 
-            catch (IOException ex) 
+                enviarParaTodos(msg);
+            }           
+            catch(IOException e) 
             {
                 // Vai cair aqui se o 'verificarTodos()' der erro, porque um dos clientes ficou offline.
-                Server.removerDesconectado(mensagem);
+                Server.removerDesconectado();
                 
                 try 
                 {
-                    enviarParaTodos(mensagem);
+                    enviarParaTodos(msg);
                 } 
-                catch (IOException ex1) 
+                catch (IOException ex) 
                 {
-                    Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex1);
+
                 }
+            }
+            catch (ClassNotFoundException e) 
+            {
+                
             }
         }
     }   

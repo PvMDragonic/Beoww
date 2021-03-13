@@ -15,7 +15,7 @@ public class Server
     private static ArrayList<ClientHandler> clientes = new ArrayList<>();
     private static ExecutorService pool = Executors.newFixedThreadPool(5);
     
-    public static void removerDesconectado(String mensagem)
+    public static void removerDesconectado()
     {
         // Isso aqui vai rodar até remover todo(s) client(es) faltando. 
         while (true)
@@ -25,7 +25,7 @@ public class Server
             {
                 for (b = 0; b < clientes.size(); b++)
                 {
-                    clientes.get(b).saida.writeUTF("");
+                    clientes.get(b).saida.writeObject(new ObjetoEnviado(-1, 3, null, "", "", "", ""));
                 }
                 
                 // Se chegar aqui, é porque tá tudo nos trinques, então o 'while (true)' quebra.
