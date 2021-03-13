@@ -110,8 +110,7 @@ public class InterfaceEmoji
             bruh.add(butao);
         }                  
         
-        // Isso aqui é pra gambiarrizar e tirar o dropdown menu 
-        // que ficava na esquerda do 'internalFrame'.
+        // Isso aqui é pra gambiarrizar e tirar o dropdown menu que ficava na esquerda do 'internalFrame'.
         BasicInternalFrameUI ui = (BasicInternalFrameUI)internalFrame.getUI();
         Container north = (Container)ui.getNorthPane();
         north.remove(0);

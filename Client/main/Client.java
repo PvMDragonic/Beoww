@@ -1,42 +1,35 @@
 package main;
 
-import com.vdurmont.emoji.EmojiParser;
-import java.awt.Color;
+import java.util.Random; 
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.Toolkit;
-import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import javax.swing.JTextPane;
-import java.time.format.DateTimeFormatter;  
-import java.time.LocalDateTime;
-import javax.swing.BorderFactory;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import static org.apache.commons.io.FileUtils.readFileToByteArray;
 
 public class Client extends javax.swing.JFrame 
 {
-    private Socket cliente;
-    volatile private String nomeUsuario;    
-
-    private Icon resizeIcon(ImageIcon icon, int resizedWidth, int resizedHeight) 
-    {
-        Image img = icon.getImage();  
-        Image resizedImage = img.getScaledInstance(resizedWidth, resizedHeight,  java.awt.Image.SCALE_SMOOTH);  
-        
-        return new ImageIcon(resizedImage);
-    }
+    private static Socket cliente;
+    volatile private static String nomeUsuario;  
+    volatile private static int id; 
     
     public Client() throws IOException
     {
         initComponents();
         initCliente();
         InterfaceEmoji.telaDosEmoji();
+        InterfaceArquivos.telaDosArquivos();
       
         // Isso aqui tá aqui só porque o NetBeans não deixa editar o 'initComponents()'.
         Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
@@ -47,114 +40,61 @@ public class Client extends javax.swing.JFrame
         areaMensagem.setLineWrap(true);
         areaMensagem.setWrapStyleWord(true);
         
-        ImageIcon icon = new ImageIcon(getClass().getResource("/main/smiley.png"));  
-        botaoEmoji.setIcon(resizeIcon(icon, botaoEmoji.getWidth() - botaoEmoji.getInsets().left, 
+        botaoEmoji.setIcon(resizeIcon(new ImageIcon(getClass().getResource("/main/smiley.png")), 
+                botaoEmoji.getWidth() - botaoEmoji.getInsets().left, 
                 botaoEmoji.getHeight() - botaoEmoji.getInsets().left));
-        icon = new ImageIcon(getClass().getResource("/main/file.png"));  
-        botaoArquivo.setIcon(resizeIcon(icon, botaoEmoji.getWidth() - botaoEmoji.getInsets().left, 
-                botaoEmoji.getHeight() - botaoEmoji.getInsets().left));
-        icon = new ImageIcon(getClass().getResource("/main/send.png"));  
-        botaoEnviar.setIcon(resizeIcon(icon, botaoEmoji.getWidth() - botaoEmoji.getInsets().left, 
+         
+        botaoArquivo.setIcon(resizeIcon(new ImageIcon(getClass().getResource("/main/file.png")), 
+                botaoEmoji.getWidth() - botaoEmoji.getInsets().left, 
                 botaoEmoji.getHeight() - botaoEmoji.getInsets().left));
         
-        // Vai ficar preso aqui até o usuário botar um nome válido - algo que não seja vazio.
-        while (true)
-        {
-            nomeUsuario = JOptionPane.showInputDialog(null, "Insira seu nome de usuário:", "Nome de usuário", JOptionPane.QUESTION_MESSAGE);
-            if (nomeUsuario.isEmpty())
-            {
-                JOptionPane.showMessageDialog(null, "Você não inseriu um nome válido!", "Nome inválido", JOptionPane.ERROR_MESSAGE);
-            }
-            else
-            {               
-                setTitle("Conectado como: " + nomeUsuario);
-                break;
-            }
-        }   
-
+        botaoEnviar.setIcon(resizeIcon(new ImageIcon(getClass().getResource("/main/send.png")), 
+                botaoEmoji.getWidth() - botaoEmoji.getInsets().left, 
+                botaoEmoji.getHeight() - botaoEmoji.getInsets().left));
+        
+        dadosUsuario();
         Chat();
     }
-
-    private void initCliente()
+    
+    private void dadosUsuario()
     {
-        try 
+        while (true)
         {
-            this.cliente = new Socket("192.168.0.3",25565);
+            nomeUsuario = JOptionPane.showInputDialog(null, 
+                    "Insira seu nome de usuário:", 
+                    "Nome de usuário", 
+                    JOptionPane.QUESTION_MESSAGE);
+            
+            if (nomeUsuario.isEmpty())
+            {
+                JOptionPane.showMessageDialog(null, 
+                        "Você não inseriu um nome válido!", 
+                        "Nome inválido", 
+                        JOptionPane.ERROR_MESSAGE);
+            }
+            else
+            {                              
+                Random rand = new Random();
+                id = rand.nextInt(100000);
+                
+                setTitle("Conectado como: " + nomeUsuario + " | ID: " + id);
+                break;
+            }
         } 
-        catch (IOException ex) 
-        {
-            Logger.getLogger(Client.class.getName()).log(Level.SEVERE, null, ex);
-        }
+    }
+
+    private void initCliente() throws IOException
+    {
+        cliente = new Socket("192.168.0.3",25565);
     }
     
-    private int contadorOcorrencia(String txtProcurado, String txtAlvo)
+    private Icon resizeIcon(ImageIcon icon, int resizedWidth, int resizedHeight) 
     {
-        int tamProcurado = txtProcurado.length();         
-        int tamAlvo = txtAlvo.length();         
-        int tamanho = 0; 
-  
-        for (int i = 0; i <= tamAlvo - tamProcurado; i++) 
-        { 
-            int j;             
-            for (j = 0; j < tamProcurado; j++) 
-            { 
-                if (txtAlvo.charAt(i + j) != txtProcurado.charAt(j)) 
-                { 
-                    break; 
-                } 
-            } 
-   
-            if (j == tamProcurado) 
-            {                 
-                tamanho++;                 
-                j = 0;                 
-            }             
-        }         
-        return tamanho;  
-    }
-
-    private String formatarTexto(String texto)
-    {
-        int contador = 0;
-        String fraseFinal = ""; 
-        String temp = "";
-
-        // Vai rodar por todos os chars da string.
-        for (int i = 0; i < texto.length(); i++) 
-        {    
-            // Vai cair aqui se já tiver passado 45 chars, que é o tamanho
-            // da linha na janela do programa.
-            if (contador <= 45)
-            {
-                // Ele vai ir juntando os chars na var 'temp', mas caso
-                // ele encontre uma newline, ele vai adicionar tudo pra
-                // 'fraseFinal' e vai recomeçar a separar os chars na 'temp'.
-                if (texto.charAt(i) != '\n')
-                {
-                    temp = temp + texto.charAt(i);
-                }
-                else
-                {
-                    fraseFinal = fraseFinal + temp + "\n";
-                    temp = "";
-                    contador = 0;
-                }
-            }
-            // Assim como no caso da newline, quando passar dos 45 chars, ele
-            // joga tudo pra 'fraseFinal' e recomeça a separar os chars na 'temp'.
-            else
-            {
-                fraseFinal = fraseFinal + temp + "\n";
-                temp = "";
-                contador = 0;
-            }
-            contador++;
-        }
-        // Vai cair aqui se não tiver mais char, só que não tiver fechado 45 ainda.
-        fraseFinal = fraseFinal + temp;
+        Image img = icon.getImage();  
+        Image resizedImage = img.getScaledInstance(resizedWidth, resizedHeight,  java.awt.Image.SCALE_SMOOTH);  
         
-        return fraseFinal;
-    }
+        return new ImageIcon(resizedImage);
+    } 
     
     private void Chat()
     {
@@ -163,85 +103,60 @@ public class Client extends javax.swing.JFrame
             @Override
             public void run() 
             {     
+                ObjectInputStream inputStream = null;
+                
+                try 
+                {
+                    inputStream = new ObjectInputStream(cliente.getInputStream());
+                } 
+                catch (IOException ex) 
+                {
+
+                }
+                
                 while (true)
-                {      
+                {        
                     try 
-                    {             
-                        // Cria a conexão com o servidor pra receber as coisas.
-                        DataInputStream msg = new DataInputStream(cliente.getInputStream());                     
+                    {                         
+                        ObjetoEnviado msg = (ObjetoEnviado) inputStream.readObject();
                         
-                        // Lê a mensagem da conexão. Toda vez que o 'readUTF()' é chamado, ele "tira" fora 
-                        // uma das coisas que tavam na fila para serem recebidas pelo client. Por isso, eu tenho
-                        // que salvar numa variável, porque toda vez que o 'readUTF()' for chamado, vai ser algo diferente.
-                        // Ele também trava o código, porque ele fica esperando algo chegar pra ler.
-                        String mem = msg.readUTF();
-                        
-                        if (!mem.equals(""))
+                        // Mensagem de texto
+                        if (msg.getTipo() == 0)
                         {
-                            // Simples container pra botar o texto.
-                            JTextPane texto = new JTextPane();                           
-                            texto.setEditable(false);
-                            
-                            // Tem que ser html, em vez de plain, pra poder meter bold e etc no meio da string.
-                            texto.setContentType("text/html");
-                                                       
-                            texto.setFont(new java.awt.Font("Segoe UI Emoji", 0, 14));
-                            
                             // Placeholder muito foda pra fazer gambiarra de ter espaço entre as msg.
                             JTextPane placeHolder = new JTextPane();
                             placeHolder.setPreferredSize(new Dimension(chat.getWidth(), 10));
+                            chat.insertComponent(placeHolder);                          
+                            
+                            chat.insertComponent(MensagemTexto.Criar(msg, id));
+                        }
+                        // Imagem
+                        else if (msg.getTipo() == 1)
+                        {
+                            JTextPane placeHolder = new JTextPane();
+                            placeHolder.setPreferredSize(new Dimension(chat.getWidth(), 10));
                             chat.insertComponent(placeHolder);
-
-                            String[] bruh = mem.split(":");
                             
-                            // Caso seja msg do próprio usuário, ela vai ficar com outline azul;
-                            // caso contrário (outros usuários), fica com outline cinza.
-                            if (bruh[0].equals(nomeUsuario))
-                                texto.setBorder(BorderFactory.createCompoundBorder(
-                                    BorderFactory.createLineBorder(Color.BLUE, 1),
-                                    BorderFactory.createEmptyBorder(5, 10, 0, 10)));
-                            else
-                                texto.setBorder(BorderFactory.createCompoundBorder(
-                                    BorderFactory.createLineBorder(Color.GRAY, 1),
-                                    BorderFactory.createEmptyBorder(5, 10, 0, 10)));
-                            
-                            // 'bruh[0]' é o nome do usuário.
-                            bruh[0] = "<b>" + bruh[0] + "</b>";
-                            
-                            mem = bruh[0] + ":" + bruh[1];                                            
-                            
-                            // As mensagens são enviadas com '[[[[[' no lugar das newline porque se eu envio com newline,
-                            // o 'readUTF()' vai ativar separado pra cada newline. Por causa disso, eu envio tudo numa só coisa,
-                            // e aí separo. 
-                            // O 'formatarTexto' é uma implementação do line wrapping, porque a do próprio Java buga loucamente
-                            // as caixinhas de texto.
-                            mem = formatarTexto(mem.replace("[[[[[","<br/>"));                                            
+                            chat.insertComponent(MensagemImagem.Criar(msg, id));
+                        }
+                        // Ping
+                        else
+                        {
 
-                            DateTimeFormatter data = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");  
-                            LocalDateTime agora = LocalDateTime.now();          
-                            mem = "<html>" + data.format(agora) + "<br/>" + mem + "</html>";
-
-                            texto.setText(EmojiParser.parseToUnicode(mem));
-
-                            // Se eu não seto o tamanho do 'texto', o programa vai ficar colocando todos na mesma row até ela encher, pra aí passar pra debaixo.
-                            // Pra isso não acontecer, eu tenho que setar um tamanho fixo; a horizontal eu usei o tamanho do 'chat', mas pra vertical tem que
-                            // ser dinâmico, porque cada mensagem pode variar de tamanho.
-                            // Essa equação fodida aí faz com que tudo funcione nos trinques, usando como base a ideia de adicionar mais tamanho dependendo do
-                            // número de newlines que a mensagem tem.
-                            texto.setPreferredSize(new Dimension(chat.getWidth(), 
-                                    (int) (((contadorOcorrencia("<br/>", mem) + 1) * 30) - ((contadorOcorrencia("<br/>", mem) * 30) * 0.4785))));
-
-                            chat.insertComponent(texto);    
                         }
                     } 
+                    catch (ClassNotFoundException ex) 
+                    {
+                        
+                    }
                     catch (IOException ex) 
                     {
-                        Logger.getLogger(Client.class.getName()).log(Level.SEVERE, null, ex);
+                        
                     }
                 }
             }
         }.start();
-    }
+    }  
     
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
@@ -353,36 +268,64 @@ public class Client extends javax.swing.JFrame
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
+    public static void EnviarArquivo(String enderecoArqv) throws FileNotFoundException, IOException
+    {          
+        String extArquivo = ExtrairDeString.extrair(enderecoArqv, '.');
+        String nomeArquivo = ExtrairDeString.extrair(enderecoArqv, '\\');
+        
+        File arqv = new File(enderecoArqv);
+        
+        byte[] img = readFileToByteArray(arqv);
+        
+        ObjectOutputStream outputStream = new ObjectOutputStream(cliente.getOutputStream());
+        
+        outputStream.writeObject(new ObjetoEnviado(
+                id, 
+                1, 
+                img,
+                "", 
+                "<b>" + nomeUsuario + ": </b>",
+                extArquivo, 
+                nomeArquivo));
+    }
+    
     private void botaoEnviarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botaoEnviarActionPerformed
         try 
         {
             if (!areaMensagem.getText().equals(""))
             {
-                PrintStream saida = new PrintStream(this.cliente.getOutputStream());
-                String bruh = areaMensagem.getText().replace("\n", "[[[[[");
-                saida.println(nomeUsuario + ": " + bruh);
+                ObjectOutputStream outputStream = new ObjectOutputStream(cliente.getOutputStream());
+        
+                outputStream.writeObject(new ObjetoEnviado(
+                        id, 
+                        0, 
+                        null, 
+                        areaMensagem.getText(),
+                        "<b>" + nomeUsuario + ": </b>",
+                        null, 
+                        null));
+
                 areaMensagem.setText("");
             }                     
         } 
         catch (IOException ex) 
         {
-            Logger.getLogger(Client.class.getName()).log(Level.SEVERE, null, ex);
+            
         }
     }//GEN-LAST:event_botaoEnviarActionPerformed
 
     private void botaoArquivoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botaoArquivoActionPerformed
-        // TODO add your handling code here:
+        if (InterfaceEmoji.ativo()) InterfaceEmoji.desativar();
+        
+        if (InterfaceArquivos.ativo()) InterfaceArquivos.desativar();
+        else InterfaceArquivos.ativar();
     }//GEN-LAST:event_botaoArquivoActionPerformed
 
     private void botaoEmojiActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botaoEmojiActionPerformed
-        if (InterfaceEmoji.ativo()) 
-        {
-            InterfaceEmoji.desativar();
-        }
-        else 
-        {
-            InterfaceEmoji.ativar();
-        }
+        if (InterfaceArquivos.ativo()) InterfaceArquivos.desativar();
+        
+        if (InterfaceEmoji.ativo()) InterfaceEmoji.desativar();
+        else InterfaceEmoji.ativar();
     }//GEN-LAST:event_botaoEmojiActionPerformed
 
     public static void main(String args[])
@@ -397,7 +340,7 @@ public class Client extends javax.swing.JFrame
                     break;
                 }
             }
-        } 
+        }    
         catch (ClassNotFoundException ex) 
         {
             java.util.logging.Logger.getLogger(Client.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
@@ -433,7 +376,7 @@ public class Client extends javax.swing.JFrame
     private javax.swing.JButton botaoArquivo;
     private javax.swing.JButton botaoEmoji;
     private javax.swing.JButton botaoEnviar;
-    private javax.swing.JTextPane chat;
+    public static javax.swing.JTextPane chat;
     public static javax.swing.JPanel jPanel1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane3;
