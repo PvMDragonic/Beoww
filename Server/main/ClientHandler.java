@@ -8,9 +8,10 @@ import java.util.ArrayList;
 
 public class ClientHandler implements Runnable
 {
-    public Socket cliente;
+    private Socket cliente;
     public ObjectOutputStream saida;
     public ArrayList<ClientHandler> clientes;
+    public boolean gambiarraMuitoFoda = true;
     
     public ClientHandler(Socket clientSocket, ArrayList<ClientHandler> clientes) throws IOException
     {
@@ -31,15 +32,14 @@ public class ClientHandler implements Runnable
     {
         for (ClientHandler Cliente : clientes)
         {
-            System.out.println("enviando: " + msg.getTipo());
             Cliente.saida.writeObject(msg);
         }
     }
     
     @Override
     public void run() 
-    {
-        while (true)
+    {     
+        while (gambiarraMuitoFoda)
         {   
             ObjetoEnviado msg = null;
             try 
@@ -53,11 +53,10 @@ public class ClientHandler implements Runnable
             }           
             catch(IOException e) 
             {
-                // Vai cair aqui se o 'verificarTodos()' der erro, porque um dos clientes ficou offline.
-                Server.removerDesconectado();
-                
                 try 
                 {
+                    // Vai cair aqui se o 'verificarTodos()' der erro, porque um dos clientes ficou offline.
+                    Server.removerDesconectado();
                     enviarParaTodos(msg);
                 } 
                 catch (IOException ex) 

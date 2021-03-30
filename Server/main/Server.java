@@ -7,16 +7,17 @@ import java.net.Socket;
 import java.util.ArrayList; 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class Server
 {     
     private static ArrayList<ClientHandler> clientes = new ArrayList<>();
     private static ExecutorService pool = Executors.newFixedThreadPool(5);
     
-    public static void removerDesconectado()
-    {
+    public static int porta = 0;
+    public static String endereco = "";
+    
+    public static void removerDesconectado() throws IOException
+    {   
         // Isso aqui vai rodar até remover todo(s) client(es) faltando. 
         while (true)
         {
@@ -27,26 +28,33 @@ public class Server
                 {
                     clientes.get(b).saida.writeObject(new ObjetoEnviado(-1, 3, null, "", "", "", ""));
                 }
-                
+             
                 // Se chegar aqui, é porque tá tudo nos trinques, então o 'while (true)' quebra.
                 break;
             }
             catch (Exception e)
             {
+                clientes.get(b).gambiarraMuitoFoda = false;
                 clientes.remove(b);
             }
         }
     }
     
-    public static void main(String args[])
+    public static void main(String args[]) throws InterruptedException
     {  
-        int porta = 25565;
+        TelaSetup iniciar = new TelaSetup();
+        iniciar.setVisible(true);
+        
+        while (iniciar.porta == 0)
+        {
+            Thread.sleep(500);
+        }
         
         try 
         {
             // Cria o socket.
-            ServerSocket server = new ServerSocket(porta, 0, InetAddress.getByName("192.168.0.3"));
-            System.out.println("Servidor iniciado em " + server.getInetAddress().getHostAddress() + ":" + porta);
+            ServerSocket server = new ServerSocket(iniciar.porta, 0, InetAddress.getByName(iniciar.endereco));
+            System.out.println("Servidor iniciado em " + server.getInetAddress().getHostAddress() + ":" + iniciar.porta);
 
             while (true)
             {
@@ -62,7 +70,7 @@ public class Server
         } 
         catch (IOException ex) 
         {
-            Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
+
         }
     }   
 }
