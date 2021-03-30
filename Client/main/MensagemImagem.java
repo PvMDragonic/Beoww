@@ -40,11 +40,11 @@ public class MensagemImagem
         return bi;
     }
     
-    private static void MouseClicado(MouseEvent me, String nomeArqv) throws IOException
+    private static void MouseClicado(MouseEvent me, String nomeArqv, BufferedImage bi) throws IOException
     {
         if (SwingUtilities.isRightMouseButton(me))
         {
-            DropdownMenu menu = new DropdownMenu(nomeArqv);
+            DropdownMenu menu = new DropdownMenu(nomeArqv, bi);
             menu.show(me.getComponent(), me.getX(), me.getY());
         }
         else
@@ -82,7 +82,7 @@ public class MensagemImagem
             {
                 try 
                 {
-                    MouseClicado(me, msg.getArqvNome());
+                    MouseClicado(me, msg.getArqvNome(), bufferedImage);
                 } 
                 catch (Exception ex) 
                 {

@@ -1,9 +1,9 @@
 package main;
 
+import com.vdurmont.emoji.EmojiParser;
 import java.util.Random; 
 import java.awt.Dimension;
 import java.awt.Image;
-import java.awt.Toolkit;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -12,34 +12,29 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JOptionPane;
 import javax.swing.JTextPane;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import java.net.ConnectException;
+import javax.swing.JOptionPane;
 import static org.apache.commons.io.FileUtils.readFileToByteArray;
 
 public class Client extends javax.swing.JFrame 
 {
-    private static Socket cliente;
+    volatile private static Socket cliente;
     volatile private static String nomeUsuario;  
     volatile private static int id; 
     
-    public Client() throws IOException
-    {
+    public Client() throws IOException, InterruptedException
+    {   
         initComponents();
-        initCliente();
+
         InterfaceEmoji.telaDosEmoji();
         InterfaceArquivos.telaDosArquivos();
       
-        // Isso aqui tá aqui só porque o NetBeans não deixa editar o 'initComponents()'.
-        Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
-        int x = (int) ((dimension.getWidth() - getWidth()) / 2);
-        int y = (int) ((dimension.getHeight() - getHeight()) / 2);
-        setLocation(x, y);
-        
-        areaMensagem.setLineWrap(true);
-        areaMensagem.setWrapStyleWord(true);
-        
+        // Isso aqui tá aqui só porque o NetBeans não deixa editar o 'initComponents()'. 
+        setTitle("Conectado como: " + nomeUsuario + " | ID: " + id);
+
         botaoEmoji.setIcon(resizeIcon(new ImageIcon(getClass().getResource("/main/smiley.png")), 
                 botaoEmoji.getWidth() - botaoEmoji.getInsets().left, 
                 botaoEmoji.getHeight() - botaoEmoji.getInsets().left));
@@ -52,40 +47,41 @@ public class Client extends javax.swing.JFrame
                 botaoEmoji.getWidth() - botaoEmoji.getInsets().left, 
                 botaoEmoji.getHeight() - botaoEmoji.getInsets().left));
         
-        dadosUsuario();
         Chat();
-    }
-    
-    private void dadosUsuario()
-    {
-        while (true)
-        {
-            nomeUsuario = JOptionPane.showInputDialog(null, 
-                    "Insira seu nome de usuário:", 
-                    "Nome de usuário", 
-                    JOptionPane.QUESTION_MESSAGE);
-            
-            if (nomeUsuario.isEmpty())
-            {
-                JOptionPane.showMessageDialog(null, 
-                        "Você não inseriu um nome válido!", 
-                        "Nome inválido", 
-                        JOptionPane.ERROR_MESSAGE);
-            }
-            else
-            {                              
-                Random rand = new Random();
-                id = rand.nextInt(100000);
-                
-                setTitle("Conectado como: " + nomeUsuario + " | ID: " + id);
-                break;
-            }
-        } 
+        EmojiTempoReal();
     }
 
-    private void initCliente() throws IOException
+    private static void loginCliente() throws IOException, InterruptedException
     {
-        cliente = new Socket("192.168.0.3",25565);
+        TelaLogin login = new TelaLogin();       
+
+        while (true)
+        {
+            login.setVisible(true);
+            
+            // Impedir do código continuar a rodar durante a tela de login.
+            while (login.porta == 0)
+            {                    
+                Thread.sleep(500);         
+            }
+
+            nomeUsuario = login.nomeUsuario;
+            id = new Random().nextInt(100000);
+            
+            try
+            {
+                cliente = new Socket(login.endereco, login.porta); // 192.168.0.3:25565
+                break;
+            }
+            catch (ConnectException e)
+            {
+                login.porta = 0;
+                JOptionPane.showMessageDialog(null, 
+                    "Houve um erro ao conectar-se com o servidor!", 
+                    "Erro de conexão", 
+                    JOptionPane.ERROR_MESSAGE);
+            }
+        }       
     }
     
     private Icon resizeIcon(ImageIcon icon, int resizedWidth, int resizedHeight) 
@@ -94,7 +90,45 @@ public class Client extends javax.swing.JFrame
         Image resizedImage = img.getScaledInstance(resizedWidth, resizedHeight,  java.awt.Image.SCALE_SMOOTH);  
         
         return new ImageIcon(resizedImage);
-    } 
+    }
+    
+    private void EmojiTempoReal()
+    {
+        new Thread()
+        {
+            @Override
+            public void run() 
+            {         
+                String antigo = "";
+                String novo = "";
+                
+                while(true)
+                {
+                    try 
+                    {
+                        Thread.sleep(200);
+                        
+                        if (!areaMensagem.getText().equals(""))
+                        {   
+                            antigo = areaMensagem.getText();
+
+                            novo = EmojiParser.parseToUnicode(antigo);
+                            
+                            if (!novo.equals(antigo))
+                            {
+                                areaMensagem.setText(novo);
+                                areaMensagem.setCaretPosition(novo.length());                              
+                            }
+                        } 
+                    } 
+                    catch (InterruptedException ex) 
+                    {
+                        Logger.getLogger(Client.class.getName()).log(Level.SEVERE, null, ex);
+                    }                                 
+                }
+            }
+        }.start();
+    }
     
     private void Chat()
     {
@@ -102,7 +136,7 @@ public class Client extends javax.swing.JFrame
         {
             @Override
             public void run() 
-            {     
+            {                     
                 ObjectInputStream inputStream = null;
                 
                 try 
@@ -120,29 +154,27 @@ public class Client extends javax.swing.JFrame
                     {                         
                         ObjetoEnviado msg = (ObjetoEnviado) inputStream.readObject();
                         
-                        // Mensagem de texto
-                        if (msg.getTipo() == 0)
-                        {
-                            // Placeholder muito foda pra fazer gambiarra de ter espaço entre as msg.
-                            JTextPane placeHolder = new JTextPane();
-                            placeHolder.setPreferredSize(new Dimension(chat.getWidth(), 10));
-                            chat.insertComponent(placeHolder);                          
-                            
-                            chat.insertComponent(MensagemTexto.Criar(msg, id));
-                        }
-                        // Imagem
-                        else if (msg.getTipo() == 1)
-                        {
-                            JTextPane placeHolder = new JTextPane();
-                            placeHolder.setPreferredSize(new Dimension(chat.getWidth(), 10));
-                            chat.insertComponent(placeHolder);
-                            
-                            chat.insertComponent(MensagemImagem.Criar(msg, id));
-                        }
-                        // Ping
-                        else
-                        {
-
+                        switch (msg.getTipo()) 
+                        {                           
+                            case 0: // Mensagem de texto
+                            {
+                                // Placeholder muito foda pra fazer gambiarra de ter espaço entre as msg.
+                                JTextPane placeHolder = new JTextPane();
+                                placeHolder.setPreferredSize(new Dimension(chat.getWidth(), 10));
+                                chat.insertComponent(placeHolder);
+                                chat.insertComponent(MensagemTexto.Criar(msg, id));                              
+                                break;
+                            }                           
+                            case 1: // Imagem
+                            {
+                                JTextPane placeHolder = new JTextPane();
+                                placeHolder.setPreferredSize(new Dimension(chat.getWidth(), 10));
+                                chat.insertComponent(placeHolder);
+                                chat.insertComponent(MensagemImagem.Criar(msg, id));
+                                break;
+                            }                            
+                            default: // Ping
+                                break;
                         }
                     } 
                     catch (ClassNotFoundException ex) 
@@ -152,6 +184,11 @@ public class Client extends javax.swing.JFrame
                     catch (IOException ex) 
                     {
                         
+                    }
+                    catch (Exception ex)
+                    {
+                        // Isso aqui tá aqui por causa de um furo que causa um crash.
+                        // Essa gambiarra elimina o crash, e o bug não afeta o funcionamento.
                     }
                 }
             }
@@ -165,11 +202,11 @@ public class Client extends javax.swing.JFrame
         jScrollPane1 = new javax.swing.JScrollPane();
         chat = new javax.swing.JTextPane();
         jPanel1 = new javax.swing.JPanel();
-        jScrollPane3 = new javax.swing.JScrollPane();
-        areaMensagem = new javax.swing.JTextArea();
         botaoEmoji = new javax.swing.JButton();
         botaoArquivo = new javax.swing.JButton();
         botaoEnviar = new javax.swing.JButton();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        areaMensagem = new javax.swing.JTextArea();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setResizable(false);
@@ -185,11 +222,6 @@ public class Client extends javax.swing.JFrame
         chat.setMinimumSize(new java.awt.Dimension(1, 6));
         chat.setPreferredSize(new java.awt.Dimension(1, 20));
         jScrollPane1.setViewportView(chat);
-
-        areaMensagem.setColumns(20);
-        areaMensagem.setRows(5);
-        areaMensagem.setBorder(javax.swing.BorderFactory.createTitledBorder(javax.swing.BorderFactory.createEtchedBorder(), "Digite aqui:"));
-        jScrollPane3.setViewportView(areaMensagem);
 
         botaoEmoji.setBackground(new java.awt.Color(100, 105, 110));
         botaoEmoji.setForeground(new java.awt.Color(80, 80, 80));
@@ -215,13 +247,21 @@ public class Client extends javax.swing.JFrame
             }
         });
 
+        areaMensagem.setColumns(20);
+        areaMensagem.setFont(new java.awt.Font("Segoe UI Emoji", 0, 14)); // NOI18N
+        areaMensagem.setLineWrap(true);
+        areaMensagem.setRows(5);
+        areaMensagem.setWrapStyleWord(true);
+        areaMensagem.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        jScrollPane2.setViewportView(areaMensagem);
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE)
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(botaoEmoji, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -234,14 +274,15 @@ public class Client extends javax.swing.JFrame
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 127, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addComponent(botaoEmoji, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(botaoArquivo, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(botaoEnviar, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addComponent(botaoEnviar, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 1, Short.MAX_VALUE))
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.TRAILING))
+                .addContainerGap())
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -251,8 +292,8 @@ public class Client extends javax.swing.JFrame
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane1)
-                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jScrollPane1))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -266,6 +307,7 @@ public class Client extends javax.swing.JFrame
         );
 
         pack();
+        setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
 
     public static void EnviarArquivo(String enderecoArqv) throws FileNotFoundException, IOException
@@ -276,10 +318,12 @@ public class Client extends javax.swing.JFrame
         File arqv = new File(enderecoArqv);
         
         byte[] img = readFileToByteArray(arqv);
-        
-        ObjectOutputStream outputStream = new ObjectOutputStream(cliente.getOutputStream());
-        
-        outputStream.writeObject(new ObjetoEnviado(
+               
+        try
+        {
+            ObjectOutputStream outputStream = new ObjectOutputStream(cliente.getOutputStream());
+            
+            outputStream.writeObject(new ObjetoEnviado(
                 id, 
                 1, 
                 img,
@@ -287,30 +331,50 @@ public class Client extends javax.swing.JFrame
                 "<b>" + nomeUsuario + ": </b>",
                 extArquivo, 
                 nomeArquivo));
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, 
+                "Houve um erro na comunicação com o servidor!\nO cliente será encarrado.", 
+                "Servidor off-line", 
+                JOptionPane.ERROR_MESSAGE);
+            System.exit(0);
+        }     
     }
     
     private void botaoEnviarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botaoEnviarActionPerformed
-        try 
+
+        String msg = areaMensagem.getText();    
+        
+        if (!msg.equals(""))
         {
-            if (!areaMensagem.getText().equals(""))
+            try 
             {
                 ObjectOutputStream outputStream = new ObjectOutputStream(cliente.getOutputStream());
-        
+
                 outputStream.writeObject(new ObjetoEnviado(
-                        id, 
-                        0, 
-                        null, 
-                        areaMensagem.getText(),
+                        id,
+                        0,
+                        null,
+                        msg,
                         "<b>" + nomeUsuario + ": </b>",
-                        null, 
+                        null,
                         null));
 
                 areaMensagem.setText("");
-            }                     
-        } 
-        catch (IOException ex) 
-        {
-            
+                
+                // Caso a pessoa abra a interface, e clique para enviar uma msg.
+                InterfaceArquivos.desativar();
+                InterfaceEmoji.desativar();
+            } 
+            catch (IOException ex) 
+            {
+                JOptionPane.showMessageDialog(null, 
+                    "Houve um erro na comunicação com o servidor!\nO cliente será encarrado.", 
+                    "Servidor off-line", 
+                    JOptionPane.ERROR_MESSAGE);
+                System.exit(0);
+            }
         }
     }//GEN-LAST:event_botaoEnviarActionPerformed
 
@@ -328,8 +392,10 @@ public class Client extends javax.swing.JFrame
         else InterfaceEmoji.ativar();
     }//GEN-LAST:event_botaoEmojiActionPerformed
 
-    public static void main(String args[])
+    public static void main(String args[]) throws InterruptedException, IOException
     {
+        loginCliente();      
+        
         try 
         {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) 
@@ -341,19 +407,7 @@ public class Client extends javax.swing.JFrame
                 }
             }
         }    
-        catch (ClassNotFoundException ex) 
-        {
-            java.util.logging.Logger.getLogger(Client.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } 
-        catch (InstantiationException ex) 
-        {
-            java.util.logging.Logger.getLogger(Client.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } 
-        catch (IllegalAccessException ex) 
-        {
-            java.util.logging.Logger.getLogger(Client.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } 
-        catch (javax.swing.UnsupportedLookAndFeelException ex) 
+        catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) 
         {
             java.util.logging.Logger.getLogger(Client.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
@@ -361,10 +415,10 @@ public class Client extends javax.swing.JFrame
         java.awt.EventQueue.invokeLater(() -> 
         {
             try 
-            {
+            {      
                 new Client().setVisible(true);
             } 
-            catch (IOException ex) 
+            catch (IOException | InterruptedException ex) 
             {
                 Logger.getLogger(Client.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -372,13 +426,13 @@ public class Client extends javax.swing.JFrame
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    public static javax.swing.JTextArea areaMensagem;
+    public static volatile javax.swing.JTextArea areaMensagem;
     private javax.swing.JButton botaoArquivo;
     private javax.swing.JButton botaoEmoji;
     private javax.swing.JButton botaoEnviar;
     public static javax.swing.JTextPane chat;
     public static javax.swing.JPanel jPanel1;
     private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JScrollPane jScrollPane3;
+    private javax.swing.JScrollPane jScrollPane2;
     // End of variables declaration//GEN-END:variables
 }

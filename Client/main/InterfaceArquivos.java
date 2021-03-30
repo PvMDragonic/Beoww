@@ -1,6 +1,5 @@
 package main;
 
-import com.vdurmont.emoji.EmojiParser;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;

@@ -1,6 +1,7 @@
 package main;
 
 import java.awt.event.ActionEvent;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import javax.swing.AbstractAction;
 import javax.swing.JMenuItem;
@@ -9,7 +10,7 @@ import javax.swing.filechooser.FileSystemView;
 
 class DropdownMenu extends JPopupMenu 
 {    
-    public DropdownMenu(String nomeArqv) 
+    public DropdownMenu(String nomeArqv, BufferedImage bi) 
     {
         JMenuItem menuItem = new JMenuItem(new AbstractAction("Ver na pasta") 
         {
@@ -25,6 +26,17 @@ class DropdownMenu extends JPopupMenu
                 {
 
                 }
+            }
+        });
+        
+        add(menuItem);
+        
+        menuItem = new JMenuItem(new AbstractAction("Copiar imagem") 
+        {
+            public void actionPerformed(ActionEvent e) 
+            {
+                CopiarImagem ci = new CopiarImagem();
+                ci.copiar(bi);
             }
         });
         

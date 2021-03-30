@@ -45,7 +45,7 @@ public class MensagemTexto
         // Vai rodar por todos os chars da string.
         for (int i = 0; i < texto.length(); i++) 
         {    
-            // Vai cair aqui se já tiver passado 45 chars, que é o tamanho
+            // Vai cair aqui se já tiver passado 50 chars, que é o tamanho
             // da linha na janela do programa.
             if (contador <= 50)
             {

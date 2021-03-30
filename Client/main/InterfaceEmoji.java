@@ -1,12 +1,12 @@
 package main;
 
+import com.vdurmont.emoji.EmojiParser;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Container;
 import javax.swing.JButton;
 import javax.swing.JInternalFrame;
 import javax.swing.plaf.basic.BasicInternalFrameUI;
-import com.vdurmont.emoji.EmojiParser;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
@@ -54,13 +54,19 @@ public class InterfaceEmoji
         internalFrame.setVisible(false);
     }
     
-    private static void butaoActionPerformed(String texto) 
+    private static void butaoActionPerformed(String emoji) 
     {
         // Isso aqui é pra remover as tags html que ficam no texto dos botões.
-        texto = texto.replace("<html>","");
-        texto = texto.replace("</html>","");
+        emoji = emoji.replace("<html>","");
+        emoji = emoji.replace("</html>","");
         
-        Client.areaMensagem.setText(Client.areaMensagem.getText() + " " + texto);
+        String texto = Client.areaMensagem.getText();
+        
+        if (texto.equals(""))
+            Client.areaMensagem.setText(texto + emoji);
+        else
+            Client.areaMensagem.setText(texto + " " + emoji);
+        
         internalFrame.setVisible(false);
     }
     
