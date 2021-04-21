@@ -1,12 +1,21 @@
 package main;
 
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Toolkit;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList; 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import javax.swing.JFrame;
+import javax.swing.JTextArea;
+import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
 
 public class Server
 {     
@@ -40,6 +49,38 @@ public class Server
         }
     }
     
+    private static void console()
+    {
+        final JFrame frame = new JFrame();
+        JTextArea textArea = new JTextArea(24, 80);
+        
+        textArea.setBackground(Color.BLACK);
+        textArea.setForeground(Color.LIGHT_GRAY);
+        textArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        System.setOut(new PrintStream(new OutputStream() 
+        {
+            @Override
+            public void write(int b) throws IOException 
+            {
+                textArea.append(String.valueOf((char) b));
+            }
+        }));
+        
+        Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
+        int x = (int) ((dimension.getWidth() - 600) / 2);
+        int y = (int) ((dimension.getHeight() - 600) / 2);
+        frame.setLocation(x, y);
+        
+        frame.setTitle("Console do servidor");
+        frame.setSize(600, 600);
+        frame.setResizable(false);
+        frame.setDefaultCloseOperation(EXIT_ON_CLOSE);
+        
+        frame.add(textArea);
+        frame.pack();
+        frame.setVisible(true);
+    }
+    
     public static void main(String args[]) throws InterruptedException
     {  
         TelaSetup iniciar = new TelaSetup();
@@ -49,6 +90,8 @@ public class Server
         {
             Thread.sleep(500);
         }
+        
+        console();
         
         try 
         {
